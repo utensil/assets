@@ -14,7 +14,7 @@ png-fast dir:
     for file in "{{dir}}"/*.png; do
         [ -f "$file" ] || continue
         echo "Compressing: $file"
-        pngquant --quality=95-100 --skip-if-larger --ext .png --force "$file"
+        pngquant --quality=95-100 --skip-if-larger --ext .png --force "$file" || echo "Skipped $file (already optimized or can't improve)"
     done
 
 
