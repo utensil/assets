@@ -8,21 +8,41 @@ prep-png:
     which advpng || brew install advancecomp
     which pngquant || brew install pngquant
 
-# [oxipng] Lossless compression using oxipng max + zopfli (best ratio, slower)
+# =============================================================================
+# Proxy commands — delegate to recommended defaults
+# =============================================================================
+
+# Lossless compression (proxy → png-oxipng-all, auto size-routing)
+png dir:
+    just png-oxipng-all "{{dir}}"
+
+# Fast lossless compression (proxy → png-oxipng-fast, no zopfli)
+png-fast dir:
+    just png-oxipng-fast "{{dir}}"
+
+# Recursive all-files compression (proxy → png-oxipng-all)
+png-all dir:
+    just png-oxipng-all "{{dir}}"
+
+# =============================================================================
+# oxipng — recommended
+# =============================================================================
+
+# [oxipng] Lossless, oxipng max + zopfli (best ratio, slower; good for files <5MB)
 # Usage: just png-oxipng <dir>
 png-oxipng dir:
     find "{{dir}}" -maxdepth 1 -name "*.png" -print0 | \
       xargs -0 -P $(nproc) -I {} \
       oxipng -o max --zopfli --strip all "{}"
 
-# [oxipng] Lossless compression using oxipng max without zopfli (faster, for large files >10MB)
+# [oxipng] Lossless, oxipng max without zopfli (faster; good for files >5MB)
 # Usage: just png-oxipng-fast <dir>
 png-oxipng-fast dir:
     find "{{dir}}" -maxdepth 1 -name "*.png" -print0 | \
       xargs -0 -P $(nproc) -I {} \
       oxipng -o max --strip all "{}"
 
-# [oxipng] Recursively compress all PNGs in a directory tree (auto: zopfli for small, fast for large)
+# [oxipng] Recursive, auto size-routing: zopfli for small (<5MB), fast for large
 # Usage: just png-oxipng-all <dir>
 png-oxipng-all dir:
     #!/usr/bin/env bash
@@ -33,11 +53,9 @@ png-oxipng-all dir:
         size=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f")
         total_before=$((total_before + size))
         if [ "$size" -gt 5242880 ]; then
-            # Large files (>5MB): use fast mode (no zopfli)
             echo "[large] $f"
             oxipng -o max --strip all "$f"
         else
-            # Small files: use zopfli for best compression
             echo "[small] $f"
             oxipng -o max --zopfli --strip all "$f"
         fi
@@ -51,17 +69,24 @@ png-oxipng-all dir:
     echo "After:  $((total_after / 1024)) KB"
     echo "Saved:  $((saved / 1024)) KB ($(( saved * 100 / total_before ))%)"
 
-# [legacy] Original lossless compression (optipng + advpng) — superseded by png-oxipng
-# Usage: just png-legacy <dir>
-png-legacy dir:
-    find "{{dir}}" -maxdepth 1 -name "*.png" -print0 | xargs -0 -P $(nproc) -I {} sh -c 'echo "Compressing: {}"; optipng -o7 -strip all "{}" && advpng -z4 "{}"'
+# =============================================================================
+# Legacy — kept for reference
+# =============================================================================
 
-# [lossy] Fast lossy compression using pngquant (95-100 quality)
-# Usage: just png-fast <dir>
-png-fast dir:
+# [optipng] Lossless via optipng -o7 + advpng -z4 (largely ineffective on these assets)
+# Usage: just png-optipng <dir>
+png-optipng dir:
+    find "{{dir}}" -maxdepth 1 -name "*.png" -print0 | \
+      xargs -0 -P $(nproc) -I {} sh -c \
+      'echo "Compressing: {}"; optipng -o7 -strip all "{}" && advpng -z4 "{}"'
+
+# [pngquant] Lossy compression, quality 95-100 (skips if result is larger)
+# Usage: just png-pngquant <dir>
+png-pngquant dir:
     #!/usr/bin/env bash
     for file in "{{dir}}"/*.png; do
         [ -f "$file" ] || continue
         echo "Compressing: $file"
-        pngquant --quality=95-100 --skip-if-larger --ext .png --force "$file" || echo "Skipped $file (already optimized or can't improve)"
+        pngquant --quality=95-100 --skip-if-larger --ext .png --force "$file" \
+          || echo "Skipped $file (already optimized or can't improve)"
     done
