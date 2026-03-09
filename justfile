@@ -43,6 +43,8 @@ png-oxipng-fast dir:
       oxipng -o max --strip all "{}"
 
 # [oxipng] Recursive, auto size-routing: zopfli for small (<5MB), fast for large
+# Note: oxipng also strips fully-opaque alpha channels (RGBA→RGB) as a lossless
+#       optimization — visually identical, but saves ~25% raw pixel data.
 # Usage: just png-oxipng-all <dir>
 png-oxipng-all dir:
     #!/usr/bin/env bash
